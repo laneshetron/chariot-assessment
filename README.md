@@ -4,11 +4,11 @@
 +-------------------------------------------------------------------------------+
 |    Seconds since Jan 1, 2020    | Dash |   Counter   |      Random Data       |
 +---------------------------------+------+-------------+------------------------+
-| 32 bits                         | 1 bit| 16 bits     | 40 bits                |
+| 32 bits                         |      | 16 bits     | 40 bits                |
 +---------------------------------+------+-------------+------------------------+
 | BC5YUGA                         |  -   | AA          | TBBDEINA               |
 +-------------------------------------------------------------------------------+
-|                89 bits Total (Base32 Encoded to 19 characters)                |
+|                88 bits Total (Base32 Encoded to 18 characters)                |
 +-------------------------------------------------------------------------------+
 |                       FORMAT:  XXXXXXX-XXXXXXXXXXX                            |
 +-------------------------------------------------------------------------------+
@@ -18,7 +18,8 @@
 
 Generated ID: BC5YUGA-AATBBDEINA
 
-- `BC5YUGA` maps to the first 48 bits (32 bits for the timestamp + 16 bits for the counter).
+- `BC5YUGA` maps to the first 32 bits (representing seconds since Jan 1, 2020)
+- `AA` maps to the next 16 bits (monotonic intra-second counter)
 - `TBBDEINA` maps to the last 40 bits (random data).
 
 # DESCRIPTION
@@ -45,12 +46,9 @@ Generated ID: BC5YUGA-AATBBDEINA
 # ENCODING
 
 - **Base32 Encoding:**
-  - The entire 89-bit ID (including the dash) is encoded using Base32 without padding.
+  - The entire 88-bit ID is encoded using Base32 without padding.
+  - A dash is added after the encoded timestamp for readability
   - The output is 19 characters long.
-
-- **Output Format:**
-  - The encoded ID is split into two segments: `XXXXXXX-XXXXXXXXXXX`, separated by a dash.
-  - The dash improves readability.
 
 # NOTES
 
