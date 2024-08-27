@@ -1,10 +1,9 @@
-package main
+package id
 
 import "testing"
 
-func BenchmarkGenerateID(b *testing.B) {
-	id := ID{}
+func BenchmarkNew(b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		id.Generate()
+		New()
 	}
 }

@@ -50,7 +50,7 @@ Generated ID: BC5YUGA-AATBBDEINA
 
 ## Random
 - 40 cryptographically secure random bits are appended to each ID using the `crypto/rand` standard library.
-- The use of a secure source of randomness does come at the cost of some performance (as noted below), but using any psuedorandom generator would render the IDs guessable by a motivated adversary.
+- The use of a secure source of randomness does come at the cost of some performance (as noted below), but using any pseudorandom generator would render the IDs guessable by a motivated adversary.
 
 ## Human Readable
 - Each ID is encoded in Base32 for case insensitivity.
@@ -80,16 +80,16 @@ Generated ID: BC5YUGA-AATBBDEINA
 
 ```
 cpu: Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz
-BenchmarkGenerateID-8   	  814060	      1431 ns/op	      88 B/op	       4 allocs/op
+BenchmarkNew-8   	  953506	      1223 ns/op	      16 B/op	       1 allocs/op
 PASS
-ok  	github.com/laneshetron/chariot-assessment/pkg/id	1.650s
+ok  	github.com/laneshetron/chariot-assessment/pkg/id	1.635s
 ```
 
 ## Without secure randomness
 
 ```
 cpu: Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz
-BenchmarkGenerateID-8   	 4535600	       248.3 ns/op	      72 B/op	       3 allocs/op
+BenchmarkNew-8   	14346354	        82.76 ns/op	       0 B/op	       0 allocs/op
 PASS
-ok  	github.com/laneshetron/chariot-assessment/pkg/id	1.867s
+ok  	github.com/laneshetron/chariot-assessment/pkg/id	1.739s
 ```

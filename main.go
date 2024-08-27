@@ -3,8 +3,10 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"net/http"
 	"os"
 
+	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
 
@@ -38,5 +40,13 @@ func main() {
 		panic(err)
 	}
 
+	r := mux.NewRouter()
+	r.PathPrefix("/health").HandlerFunc(health)
+
+	r.PathPrefix("/users").HandlerFunc(createUser).
+		Methods("POST")
+
 	fmt.Println("Service ready.")
+
+	http.ListenAndServe(":8080", r)
 }
