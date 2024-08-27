@@ -60,14 +60,14 @@ Generated ID: BC5YUGA-AATBBDEINA
 ## Sortable
 
 ## Compact
-- Each ID is 19 characters in length, including the dash.
+- Each ID is 18 characters in length, including the dash.
 
 # ENCODING
 
 - **Base32 Encoding:**
   - The entire 88-bit ID is encoded using Base32 without padding.
   - A dash is added after the encoded timestamp for readability
-  - The output is 19 characters long.
+  - The output is 18 characters long.
 
 # NOTES
 

@@ -4,7 +4,9 @@ import (
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -17,7 +19,7 @@ var (
 
 // New generates a cryptographically secure, Base32-encoded ID
 func New() (ID, error) {
-	combinedBytes := ID{}
+	var combinedBytes ID
 
 	// seconds since Jan 1 2020
 	now := uint32(time.Now().Unix() - 1577854800)
@@ -37,6 +39,36 @@ func New() (ID, error) {
 		return combinedBytes, fmt.Errorf("failed to generate random bytes: %v", err)
 	}
 	return combinedBytes, nil
+}
+
+func FromString(s string) (ID, error) {
+	var id ID
+	switch len(s) {
+	case 17:
+		// without dash
+		s = strings.ToUpper(s)
+	case 18:
+		// with dash
+		s = strings.ToUpper(s)
+		s = s[:7] + s[8:]
+	default:
+		return id, errors.New("Invalid ID: must be 17 or 18 characters")
+	}
+	data, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(s)
+	if err != nil {
+		return id, errors.New("Invalid ID: could not decode")
+	}
+	copy(id[:], data)
+	return id, nil
+}
+
+func FromBytes(b []byte) (ID, error) {
+	var id ID
+	if len(b) != 11 {
+		return id, errors.New("Invalid ID")
+	}
+	copy(id[:], b)
+	return id, nil
 }
 
 func (id ID) String() string {
