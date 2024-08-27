@@ -43,6 +43,25 @@ Generated ID: BC5YUGA-AATBBDEINA
    - Cryptographically secure random bits, adding uniqueness and preventing collisions.
    - Example (encoded in Base32): `TBBDEINA`.
 
+## Unique
+- **Each ID is guaranteed unique:**
+  - Within each second the 16-bit counter is incremented monotonically to guarantee order, followed by 40 random bits.
+  - Assuming two separate ID generators generate within the same second with the same counter value, the odds of a collision are 1 in ~1.2 septillion.
+
+## Random
+- 40 cryptographically secure random bits are appended to each ID using the `crypto/rand` standard library.
+- The use of a secure source of randomness does come at the cost of some performance (as noted below), but using any psuedorandom generator would render the IDs guessable by a motivated adversary.
+
+## Human Readable
+- Each ID is encoded in Base32 for case insensitivity.
+- Each ID is lexicographically monotonic.
+- A dash is added between the encoded timestamp and counter for readability.
+
+## Sortable
+
+## Compact
+- Each ID is 19 characters in length, including the dash.
+
 # ENCODING
 
 - **Base32 Encoding:**
