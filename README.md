@@ -61,16 +61,16 @@ Generated ID: BC5YUGA-AATBBDEINA
 
 ```
 cpu: Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz
-BenchmarkGenerateID-8   	  739557	      1448 ns/op
+BenchmarkGenerateID-8   	  814060	      1431 ns/op	      88 B/op	       4 allocs/op
 PASS
-ok  	github.com/laneshetron/chariot-assessment	1.552s
+ok  	github.com/laneshetron/chariot-assessment/pkg/id	1.650s
 ```
 
 ## Without secure randomness
 
 ```
 cpu: Intel(R) Core(TM) i7-7820HQ CPU @ 2.90GHz
-BenchmarkGenerateID-8   	 4797810	       244.4 ns/op
+BenchmarkGenerateID-8   	 4535600	       248.3 ns/op	      72 B/op	       3 allocs/op
 PASS
-ok  	github.com/laneshetron/chariot-assessment	1.880s
+ok  	github.com/laneshetron/chariot-assessment/pkg/id	1.867s
 ```
