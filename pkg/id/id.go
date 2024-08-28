@@ -1,6 +1,7 @@
 package id
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/binary"
@@ -69,6 +70,19 @@ func FromBytes(b []byte) (ID, error) {
 	}
 	copy(id[:], b)
 	return id, nil
+}
+
+func Validate(id ID) (bool, error) {
+	if bytes.Compare(id[:], make([]byte, 11)) == 0 {
+		return false, errors.New("ID is uninitialized")
+	}
+	ts := binary.BigEndian.Uint32(id[:4])
+	now := uint32(time.Now().Unix() - 1577854800)
+	// This may or may not be a sensible way to validate the timestamp portion
+	if ts > now {
+		return false, errors.New("Timestamp is in the future.")
+	}
+	return true, nil
 }
 
 func (id ID) String() string {

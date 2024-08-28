@@ -1,4 +1,4 @@
-module github.com/laneshetron/chariot-assessment
+module chariot-assessment
 
 go 1.18
 
