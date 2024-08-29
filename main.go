@@ -49,6 +49,9 @@ func main() {
 	r.PathPrefix("/accounts").HandlerFunc(createAccount).
 		Methods("POST")
 
+	r.HandleFunc("/accounts/{account_id}/balance", getAccountBalance).
+		Methods("GET")
+
 	r.PathPrefix("/accounts/{account_id}/withdraw").HandlerFunc(withdraw).
 		Methods("POST")
 	r.PathPrefix("/accounts/{account_id}/deposit").HandlerFunc(deposit).
@@ -56,6 +59,9 @@ func main() {
 
 	r.PathPrefix("/accounts/{account_id}/transfer").HandlerFunc(transfer).
 		Methods("POST")
+
+	r.HandleFunc("/transactions", listTransactions).
+		Methods("GET")
 
 	fmt.Println("Service ready.")
 

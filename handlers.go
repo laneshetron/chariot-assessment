@@ -4,12 +4,15 @@ import (
 	"chariot-assessment/pkg/id"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/lib/pq"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 func health(w http.ResponseWriter, r *http.Request) {
@@ -420,4 +423,137 @@ func transfer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
+}
+
+type Transaction struct {
+	ID                   string    `json:"id"`
+	AccountID            string    `json:"accountId"`
+	ExternalAccount      string    `json:"externalAccount,omitempty"`
+	Amount               float64   `json:"amount"`
+	Type                 string    `json:"type"`
+	EndingBalance        float64   `json:"endingBalance"`
+	RelatedTransactionID string    `json:"relatedTransactionId,omitempty"`
+	CreatedAt            time.Time `json:"createdAt"`
+}
+
+type ListTransactionsResponse struct {
+	Transactions []Transaction `json:"transactions"`
+	NextCursor   string        `json:"nextCursor,omitempty"`
+}
+
+func listTransactions(w http.ResponseWriter, r *http.Request) {
+	accountIDs := r.URL.Query()["accountId"]
+	cursor := r.URL.Query().Get("cursor")
+	limit := 10 // default
+
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err != nil {
+			fmt.Println("Invalid limit:", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if parsedLimit >= 0 {
+			limit = parsedLimit
+		}
+	}
+
+	rows, err := pgClient.Query(`
+		SELECT id, account_id, external_account, amount, type, ending_balance,
+			related_transaction_id, created_at
+		FROM transactions
+		WHERE ($1::text[] IS NULL OR account_id = ANY($1))
+		AND ($2 = '' OR id > $2)
+		ORDER BY id
+		LIMIT $3`, pq.Array(accountIDs), cursor, limit+1)
+	if err != nil {
+		fmt.Println("Error querying transactions:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	transactions := []Transaction{}
+	for rows.Next() {
+		var t Transaction
+		err := rows.Scan(&t.ID, &t.AccountID, &t.ExternalAccount, &t.Amount,
+			&t.Type, &t.EndingBalance, &t.RelatedTransactionID, &t.CreatedAt)
+		if err != nil {
+			fmt.Println("Error scanning transaction row:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		transactions = append(transactions, t)
+	}
+
+	response := ListTransactionsResponse{
+		Transactions: transactions,
+	}
+
+	// if there are more transactions than requested, set the next cursor
+	if len(transactions) > limit {
+		response.Transactions = transactions[:limit]
+		response.NextCursor = transactions[limit-1].ID
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func getBalance(accountID string, atTime time.Time) (float64, error) {
+	var balance float64
+	if pgClient == nil {
+		return balance, errors.New("postgres client has not been initialized")
+	}
+
+	err := pgClient.QueryRow(`
+		SELECT ending_balance
+		FROM transactions
+		WHERE account_id = $1
+		AND created_at <= $2
+		ORDER BY created_at DESC
+		LIMIT 1`, accountID, atTime).Scan(&balance)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return balance, nil // Return 0 balance if no transactions found
+		}
+		return balance, fmt.Errorf("Error querying account balance: %w", err)
+	}
+
+	return balance, nil
+}
+
+type AccountBalanceResponse struct {
+	AccountID string    `json:"accountId"`
+	Balance   float64   `json:"balance"`
+	Timestamp time.Time `json:"timestamp,string"`
+}
+
+func getAccountBalance(w http.ResponseWriter, r *http.Request) {
+	accountID := mux.Vars(r)["account_id"]
+	timestamp := r.URL.Query().Get("timestamp")
+	ts := time.Time{}
+	if timestamp != "" {
+		parsedTime, err := time.Parse(time.RFC3339, timestamp)
+		if err != nil {
+			fmt.Println("Invalid timestamp parameter:", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		ts = parsedTime
+	}
+
+	balance, err := getBalance(accountID, ts)
+	if err != nil {
+		fmt.Println("Error getting account balance:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(AccountBalanceResponse{
+		AccountID: accountID,
+		Balance:   balance,
+		Timestamp: ts,
+	})
 }
