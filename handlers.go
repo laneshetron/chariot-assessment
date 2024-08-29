@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -21,6 +22,10 @@ func health(w http.ResponseWriter, r *http.Request) {
 
 type NewUser struct {
 	Name string `json:"name"`
+}
+
+type NewUserResponse struct {
+	UserId string `json:"userId"`
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
@@ -53,17 +58,27 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = pgClient.Exec(`
     INSERT INTO users(id, name) VALUES ($1, $2)
-    `, userId, user.Name)
+    `, userId.String(), user.Name)
 	if err != nil {
 		fmt.Println("Error while inserting into postgres:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	// return user id
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(NewUserResponse{
+		UserId: userId.String(),
+	})
 }
 
 type NewAccount struct {
 	UserId string `json:"userId"`
+}
+
+type NewAccountResponse struct {
+	AccountId string `json:"accountId"`
 }
 
 func createAccount(w http.ResponseWriter, r *http.Request) {
@@ -99,13 +114,16 @@ func createAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = pgClient.Exec(`
     INSERT INTO accounts(id, user_id) VALUES ($1, $2)
-    `, accountId, accountReq.UserId)
+    `, accountId.String(), accountReq.UserId)
 	if err != nil {
 		fmt.Println("Error while inserting into postgres:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(NewAccountResponse{
+		AccountId: accountId.String(),
+	})
 }
 
 type DepositWithdrawRequest struct {
@@ -151,14 +169,15 @@ func deposit(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
+	// row is implicitly locked
 	var newBalance float64
+	amount := math.Abs(req.Amount)
 	err = tx.QueryRow(`
 		UPDATE accounts
 		SET balance = balance + $1
 		WHERE id = $2
-		FOR UPDATE
 		RETURNING balance
-	`, req.Amount, accountId).Scan(&newBalance)
+	`, amount, accountId).Scan(&newBalance)
 	if err != nil {
 		fmt.Println("Error while updating account balance:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -177,7 +196,7 @@ func deposit(w http.ResponseWriter, r *http.Request) {
 	_, err = tx.Exec(`
 		INSERT INTO transactions(id, account_id, amount, type, ending_balance, idempotency_key)
 		VALUES ($1, $2, $3, 'deposit', $4, $5)
-	`, transactionId, accountId, req.Amount, newBalance, req.IdempotencyKey)
+	`, transactionId.String(), accountId, amount, newBalance, req.IdempotencyKey)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
 			// Unique violation error code, idempotency key already exists
@@ -239,13 +258,13 @@ func withdraw(w http.ResponseWriter, r *http.Request) {
 
 	// Check for sufficient balance & update it
 	var newBalance float64
+	amount := math.Abs(req.Amount)
 	err = tx.QueryRow(`
 		UPDATE accounts
 		SET balance = balance - $1
 		WHERE id = $2 AND balance >= $1
-		FOR UPDATE
 		RETURNING balance
-	`, req.Amount, accountId).Scan(&newBalance)
+	`, amount, accountId).Scan(&newBalance)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("Could not withdraw: Insufficient funds")
@@ -268,8 +287,8 @@ func withdraw(w http.ResponseWriter, r *http.Request) {
 	// Insert transaction record with ending_balance and idempotency_key
 	_, err = tx.Exec(`
 		INSERT INTO transactions(id, account_id, amount, type, ending_balance, idempotency_key)
-		VALUES ($1, $2, $3, 'withdraw', $4, $5)
-	`, transactionId, accountId, req.Amount, newBalance, req.IdempotencyKey)
+		VALUES ($1, $2, $3, 'withdrawal', $4, $5)
+	`, transactionId.String(), accountId, amount, newBalance, req.IdempotencyKey)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
 			// Unique violation error code, idempotency key already exists
@@ -294,7 +313,7 @@ func withdraw(w http.ResponseWriter, r *http.Request) {
 type TransferRequest struct {
 	Amount          float64 `json:"amount"`
 	IdempotencyKey  string  `json:"idempotencyKey"`
-	ExternalAccount string  `json:"externalAccount,omitempty"`
+	ExternalAccount string  `json:"externalAccount"`
 }
 
 func transfer(w http.ResponseWriter, r *http.Request) {
@@ -335,15 +354,26 @@ func transfer(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback()
 
+	// explicitly lock the sender and receiver accounts
+	// otherwise we may encounter a deadlock situation
+	_, err = tx.Exec(`
+		SELECT 1 FROM accounts WHERE id in ($1, $2) FOR UPDATE
+	`, accountId, req.ExternalAccount)
+	if err != nil {
+		fmt.Println("Error while locking accounts:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	// Check for sufficient balance & update sender's balance
 	var senderNewBalance float64
+	amount := math.Abs(req.Amount)
 	err = tx.QueryRow(`
 		UPDATE accounts
 		SET balance = balance - $1
 		WHERE id = $2 AND balance >= $1
-		FOR UPDATE
 		RETURNING balance
-	`, req.Amount, accountId).Scan(&senderNewBalance)
+	`, amount, accountId).Scan(&senderNewBalance)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			fmt.Println("Could not transfer: Insufficient funds")
@@ -361,9 +391,8 @@ func transfer(w http.ResponseWriter, r *http.Request) {
 		UPDATE accounts
 		SET balance = balance + $1
 		WHERE id = $2
-		FOR UPDATE
 		RETURNING balance
-	`, req.Amount, req.ExternalAccount).Scan(&receiverNewBalance)
+	`, amount, req.ExternalAccount).Scan(&receiverNewBalance)
 	if err != nil {
 		fmt.Println("Error while updating receiver's account balance:", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -386,11 +415,9 @@ func transfer(w http.ResponseWriter, r *http.Request) {
 
 	// Insert sender's transaction record
 	_, err = tx.Exec(`
-		INSERT INTO transactions(id, account_id, amount, type, ending_balance,
-            idempotency_key, related_transaction_id)
-		VALUES ($1, $2, $3, 'transfer_out', $4, $5, $6)
-	`, senderTransactionId, accountId, req.Amount, senderNewBalance,
-		req.IdempotencyKey, receiverTransactionId)
+		INSERT INTO transactions(id, account_id, amount, type, ending_balance, idempotency_key)
+		VALUES ($1, $2, $3, 'transfer_out', $4, $5)
+	`, senderTransactionId.String(), accountId, amount, senderNewBalance, req.IdempotencyKey)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
 			// Unique violation error code, idempotency key already exists
@@ -404,13 +431,35 @@ func transfer(w http.ResponseWriter, r *http.Request) {
 
 	// Insert receiver's transaction record
 	_, err = tx.Exec(`
-		INSERT INTO transactions(id, account_id, amount, type, ending_balance,
-            idempotency_key, related_transaction_id)
-		VALUES ($1, $2, $3, 'transfer_in', $4, $5, $6)
-	`, receiverTransactionId, req.ExternalAccount, req.Amount, receiverNewBalance,
-		req.IdempotencyKey, senderTransactionId)
+		INSERT INTO transactions(id, account_id, amount, type, ending_balance, idempotency_key)
+		VALUES ($1, $2, $3, 'transfer_in', $4, $5)
+	`, receiverTransactionId.String(), req.ExternalAccount, amount, receiverNewBalance, req.IdempotencyKey)
 	if err != nil {
 		fmt.Println("Error while inserting receiver's transaction:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// Update sender's transaction with related_transaction_id
+	_, err = tx.Exec(`
+		UPDATE transactions
+		SET related_transaction_id = $1
+		WHERE id = $2
+	`, receiverTransactionId.String(), senderTransactionId.String())
+	if err != nil {
+		fmt.Println("Error while updating sender's transaction with related_transaction_id:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	// Update receiver's transaction with related_transaction_id
+	_, err = tx.Exec(`
+		UPDATE transactions
+		SET related_transaction_id = $1
+		WHERE id = $2
+	`, senderTransactionId.String(), receiverTransactionId.String())
+	if err != nil {
+		fmt.Println("Error while updating receiver's transaction with related_transaction_id:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -476,12 +525,21 @@ func listTransactions(w http.ResponseWriter, r *http.Request) {
 	transactions := []Transaction{}
 	for rows.Next() {
 		var t Transaction
-		err := rows.Scan(&t.ID, &t.AccountID, &t.ExternalAccount, &t.Amount,
-			&t.Type, &t.EndingBalance, &t.RelatedTransactionID, &t.CreatedAt)
+		var externalAccount, relatedTransactionID sql.NullString
+		err := rows.Scan(&t.ID, &t.AccountID, &externalAccount, &t.Amount,
+			&t.Type, &t.EndingBalance, &relatedTransactionID, &t.CreatedAt)
 		if err != nil {
 			fmt.Println("Error scanning transaction row:", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
+		}
+
+		// if external_account || related_transaction_id is non-null
+		if externalAccount.Valid {
+			t.ExternalAccount = externalAccount.String
+		}
+		if relatedTransactionID.Valid {
+			t.RelatedTransactionID = relatedTransactionID.String
 		}
 		transactions = append(transactions, t)
 	}
@@ -532,7 +590,7 @@ type AccountBalanceResponse struct {
 func getAccountBalance(w http.ResponseWriter, r *http.Request) {
 	accountID := mux.Vars(r)["account_id"]
 	timestamp := r.URL.Query().Get("timestamp")
-	ts := time.Time{}
+	ts := time.Now()
 	if timestamp != "" {
 		parsedTime, err := time.Parse(time.RFC3339, timestamp)
 		if err != nil {
@@ -541,6 +599,21 @@ func getAccountBalance(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		ts = parsedTime
+	}
+
+	// Check if the account exists
+	var exists bool
+	err := pgClient.QueryRow(`
+		SELECT EXISTS(SELECT 1 FROM accounts WHERE id = $1)
+	`, accountID).Scan(&exists)
+	if err != nil {
+		fmt.Println("Error checking account existence:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 
 	balance, err := getBalance(accountID, ts)

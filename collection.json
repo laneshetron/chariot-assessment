@@ -1,0 +1,164 @@
+{
+  "info": {
+    "name": "Banking API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "Create User",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/users",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"John Doe\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Create Account",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/accounts",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"userId\": \"{{userId}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Deposit",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/accounts/{{accountId}}/deposit",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"amount\": 100.00,\n    \"idempotencyKey\": \"{{$guid}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Withdraw",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/accounts/{{accountId}}/withdraw",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"amount\": 50.00,\n    \"idempotencyKey\": \"{{$guid}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Transfer",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/accounts/{{accountId}}/transfer",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"amount\": 25.00,\n    \"idempotencyKey\": \"{{$guid}}\",\n    \"externalAccount\": \"{{receiverAccountId}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "List Transactions",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/transactions?accountId={{accountId}}&limit=10&cursor=",
+          "host": ["{{base_url}}"],
+          "path": ["transactions"],
+          "query": [
+            {
+              "key": "accountId",
+              "value": "{{accountId}}"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "cursor",
+              "value": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Account Balance",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/accounts/{{accountId}}/balance?timestamp={{timestamp}}",
+          "host": ["{{base_url}}"],
+          "path": ["accounts", "{{accountId}}", "balance"],
+          "query": [
+            {
+              "key": "timestamp",
+              "value": "{{timestamp}}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "userId",
+      "value": "your-user-id-here"
+    },
+    {
+      "key": "accountId",
+      "value": "your-account-id-here"
+    },
+    {
+      "key": "receiverAccountId",
+      "value": "receiver-account-id-here"
+    },
+    {
+      "key": "timestamp",
+      "value": "2023-04-15T12:00:00Z"
+    }
+  ]
+}

@@ -41,23 +41,23 @@ func main() {
 	}
 
 	r := mux.NewRouter()
-	r.PathPrefix("/health").HandlerFunc(health)
+	r.HandleFunc("/health", health)
 
-	r.PathPrefix("/users").HandlerFunc(createUser).
+	r.HandleFunc("/users", createUser).
 		Methods("POST")
 
-	r.PathPrefix("/accounts").HandlerFunc(createAccount).
+	r.HandleFunc("/accounts", createAccount).
 		Methods("POST")
 
 	r.HandleFunc("/accounts/{account_id}/balance", getAccountBalance).
 		Methods("GET")
 
-	r.PathPrefix("/accounts/{account_id}/withdraw").HandlerFunc(withdraw).
+	r.HandleFunc("/accounts/{account_id}/withdraw", withdraw).
 		Methods("POST")
-	r.PathPrefix("/accounts/{account_id}/deposit").HandlerFunc(deposit).
+	r.HandleFunc("/accounts/{account_id}/deposit", deposit).
 		Methods("POST")
 
-	r.PathPrefix("/accounts/{account_id}/transfer").HandlerFunc(transfer).
+	r.HandleFunc("/accounts/{account_id}/transfer", transfer).
 		Methods("POST")
 
 	r.HandleFunc("/transactions", listTransactions).

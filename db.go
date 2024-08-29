@@ -26,7 +26,7 @@ func CreateSchema() error {
         CREATE TABLE IF NOT EXISTS accounts(
             id varchar(20) PRIMARY KEY,
             user_id varchar(20) NOT NULL,
-            balance decimal(15,4),
+            balance decimal(15,4) NOT NULL DEFAULT 0.0,
             created_at timestamp DEFAULT current_timestamp,
             FOREIGN KEY (user_id) REFERENCES users(id)
         );
@@ -36,8 +36,8 @@ func CreateSchema() error {
             account_id varchar(20) NOT NULL,
             external_account varchar(20),
             idempotency_key varchar(100) NOT NULL,
-            amount decimal(15,4),
-            ending_balance decimal(15,4),
+            amount decimal(15,4) NOT NULL,
+            ending_balance decimal(15,4) NOT NULL,
             type t_transaction,
             created_at timestamp DEFAULT current_timestamp,
             FOREIGN KEY (account_id) REFERENCES accounts(id),
