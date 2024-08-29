@@ -31,9 +31,8 @@ Generated ID: BC5YUGA-AATBBDEINA
    - Example (encoded in Base32): `BC5YUGA`.
 
 2. **Dash (`-`):**
-   - A static dash character inserted after the timestamp and counter.
-   - It improves readability by separating the two main segments of the ID.
-   - Represented by a single bit in the ID format.
+   - A static dash character inserted between the timestamp and counter.
+   - Improves readability by separating the two main segments of the ID.
 
 3. **Counter (16 bits):**
    - A counter that increments with each ID generated within the same second.

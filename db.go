@@ -32,6 +32,7 @@ func CreateSchema() error {
         );
         CREATE TABLE IF NOT EXISTS transactions(
             id varchar(20) PRIMARY KEY,
+            related_transaction_id varchar(20),
             account_id varchar(20) NOT NULL,
             external_account varchar(20),
             idempotency_key varchar(100) NOT NULL,
@@ -40,7 +41,9 @@ func CreateSchema() error {
             type t_transaction,
             created_at timestamp DEFAULT current_timestamp,
             FOREIGN KEY (account_id) REFERENCES accounts(id),
-            FOREIGN KEY (external_account) REFERENCES accounts(id)
+            FOREIGN KEY (external_account) REFERENCES accounts(id),
+            FOREIGN KEY (related_transaction_id) REFERENCES transactions(id),
+            UNIQUE (idempotency_key, type)
         );
     `)
 
